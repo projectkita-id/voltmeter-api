@@ -16,9 +16,19 @@ datasource db {
 model Log {
   id          Int         @id @default(autoincrement())
   deviceId    String
-  cell        String
+  cell        Int
   volt        Float
   timestamp   DateTime    @default(now())
 
-  @@unique([deviceId, cell])
+  recordId    Int
+  record      Record      @relation(fields: [recordId], references:[id])
+}
+
+model Record {
+  id          Int        @id @default(autoincrement())
+  detail      String
+  deviceId    String
+  cell        Int
+  timestamp   DateTime
+  logs        Log[]
 }
