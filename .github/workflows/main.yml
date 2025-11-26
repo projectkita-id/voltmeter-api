@@ -1,43 +1,43 @@
 name: Deploy Voltmeter API to cPanel
-env:
-  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 on:
   push:
     branches: [ "main" ]
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 jobs:
   deploy-api:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
 
+      # 3️⃣ Setup pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9
 
-      - name: Install API dependencies
-        working-directory: ./
-        run: pnpm install --ignore-scripts
+      # 4️⃣ Install dependencies
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Install Prisma CLI v6
-        working-directory: ./
-        run: pnpm add -D prisma@6 @prisma/client@6
-
+      # 5️⃣ Generate Prisma client
       - name: Generate Prisma client
-        working-directory: ./
         run: pnpm prisma generate
 
-      # Upload Prisma runtime
-      - name: Upload Prisma client to cPanel
+      # 6️⃣ Upload Prisma runtime
+      - name: Upload Prisma runtime
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -47,18 +47,19 @@ jobs:
           server-dir: /voltmeter.iot-projectkita.com/api/node_modules/.prisma/
           dangerous-clean-slate: false
 
-      - name: Upload Prisma @prisma/client to cPanel
+      # 7️⃣ Upload @prisma/client
+      - name: Upload @prisma/client
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./node_modules/@prisma/
-          server-dir: /voltmeter.iot-projectkita.com/api/node_modules/@prisma/
+          local-dir: ./node_modules/@prisma/client/
+          server-dir: /voltmeter.iot-projectkita.com/api/node_modules/@prisma/client/
           dangerous-clean-slate: false
 
-      # Upload API source code
-      - name: Upload API source to cPanel
+      # 8️⃣ Upload API source code (tanpa node_modules)
+      - name: Upload API source
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -66,4 +67,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
           server-dir: /voltmeter.iot-projectkita.com/api/
+          exclude: |
+            node_modules
+            .git
+            *.log
           dangerous-clean-slate: false
