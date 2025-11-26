@@ -26,11 +26,11 @@ jobs:
           version: 9
 
       - name: Install API dependencies
-        working-directory: ./api
+        working-directory: ./
         run: pnpm install --ignore-scripts
 
       - name: Generate Prisma client (Linux build)
-        working-directory: ./api
+        working-directory: ./
         run: pnpm prisma generate
 
       - name: Upload Prisma client to cPanel
@@ -50,5 +50,5 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./node_modules/@prisma/
-          server-dir: //voltmeter.iot-projectkita.com/api/node_modules/@prisma/
+          server-dir: /voltmeter.iot-projectkita.com/api/node_modules/@prisma/
           dangerous-clean-slate: false
