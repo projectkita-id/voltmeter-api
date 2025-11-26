@@ -1,4 +1,6 @@
 name: Deploy Voltmeter API to cPanel
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 on:
   push:
