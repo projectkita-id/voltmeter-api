@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from 'express';
 import ExcelJS from "exceljs";
+import puppeteer from "puppeteer";
 import { PrismaClient } from "@prisma/client";
 
 const app = express();
@@ -58,29 +59,59 @@ app.get("/data/:deviceId/export", async (req, res) => {
 
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet(`Record ${latest.id}`);
+        
+        const blockSize = 10;
+        const colGap = 1;
+        const colWidths = [10, 15, 30];
 
-        sheet.columns = [
-            { header: 'Cell', key: 'cell', width: 10 },
-            { header: 'Volt', key: 'volt', width: 15 },
-            { header: 'Timestamp', key: 'timestamp', width: 25 }
-        ];
+        logs.forEach((log, i) => {
+            const block = Math.floor(i / blockSize);
+            const posInBlock = i % blockSize;
 
-        const header = sheet.getRow(1);
-        header.font = { bold: true };
-        header.alignment = { horizontal: 'center', vertical: 'middle' };
-        header.commit();
+            const startCol = block * 4 + colGap;
+            const rowNum = posInBlock + 2;
 
-        logs.forEach((log) => {
-            sheet.addRow({
-                cell: log.cell,
-                volt: log.volt,
-                timestamp: log.timestamp
-            });
-            sheet.eachRow((row) => {
-                row.eachCell((cell) => {
+             if (posInBlock === 0) {
+                const headers = ['Cell', 'Volt', 'Timestamp'];
+                headers.forEach((h, i) => {
+                    const cell = sheet.getCell(1, startCol + i);
+                    cell.value = h;
+                    cell.font = { bold: true, size: 12 };
                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB0C4DE' } };
+                    cell.border = {
+                        top: { style: "thin" },
+                        left: { style: "thin" },
+                        bottom: { style: "thin" },
+                        right: { style: "thin" },
+                    };
+                    sheet.getColumn(startCol + i).width = colWidths[i];
                 });
+            
+            }
+
+            const values = [log.cell, log.volt, log.timestamp];
+            values.forEach((v, i) => {
+                const cell = sheet.getCell(rowNum, startCol + i);
+                cell.value = v;
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = {
+                    top: { style: "thin" },
+                    left: { style: "thin" },
+                    bottom: { style: "thin" },
+                    right: { style: "thin" },
+                };
             });
+            // sheet.addRow({
+            //     cell: log.cell,
+            //     volt: log.volt,
+            //     timestamp: log.timestamp
+            // });
+            // sheet.eachRow((row) => {
+            //     row.eachCell((cell) => {
+            //         cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            //     });
+            // });
         });
 
         res.setHeader(
@@ -102,6 +133,73 @@ app.get("/data/:deviceId/export", async (req, res) => {
         res.status(500).json({ error: "Failed to export data: " + message })
     }
 });
+
+app.get("/data/:deviceId/export/pdf", async (req, res) => {
+    const { deviceId } = req.params;
+
+    const latestRecord = await prisma.record.findFirst({
+        where: { deviceId },
+        orderBy: { id: "desc" },
+        include: { logs: true }
+    });
+
+    if (!latestRecord) {
+        return res.status(404).json({ error: "No data found" });
+    }
+
+    // buat HTML yang nanti dirender jadi PDF
+    const html = `
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                h2 { text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td {
+                    border: 1px solid #000;
+                    padding: 8px;
+                    text-align: center;
+                }
+                th {
+                    background: #eee;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <h2>Export Report — ${deviceId}</h2>
+            <p>Record ID: ${latestRecord.id}</p>
+            <p>Timestamp: ${latestRecord.timestamp}</p>
+
+            <table>
+                <tr>
+                    <th>Cell</th>
+                    <th>Volt</th>
+                </tr>
+                ${latestRecord.logs
+                    .map(log => `
+                        <tr>
+                            <td>${log.cell}</td>
+                            <td>${log.volt}</td>
+                        </tr>`)
+                    .join("")}
+            </table>
+        </body>
+        </html>
+    `;
+
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    await page.setContent(html);
+    const pdfBuffer = await page.pdf({ format: "A4" });
+    await browser.close();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${deviceId}.pdf"`);
+    res.send(pdfBuffer);
+})
+
 // POST
 
 app.post("/data", async (req, res) => {
