@@ -23,15 +23,15 @@ jobs:
           version: 9
 
       - name: Install API dependencies
-        working-directory: ./api
+        working-directory: ./
         run: pnpm install --ignore-scripts
 
       - name: Install Prisma CLI v6
-        working-directory: ./api
+        working-directory: ./
         run: pnpm add -D prisma@6 @prisma/client@6
 
       - name: Generate Prisma client
-        working-directory: ./api
+        working-directory: ./
         run: pnpm prisma generate
 
       # Upload Prisma runtime
@@ -41,7 +41,7 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./api/node_modules/.prisma/
+          local-dir: ./node_modules/.prisma/
           server-dir: /voltmeter.iot-projectkita.com/api/node_modules/.prisma/
           dangerous-clean-slate: false
 
@@ -51,7 +51,7 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./api/node_modules/@prisma/
+          local-dir: ./node_modules/@prisma/
           server-dir: /voltmeter.iot-projectkita.com/api/node_modules/@prisma/
           dangerous-clean-slate: false
 
@@ -62,6 +62,6 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./api/
+          local-dir: ./
           server-dir: /voltmeter.iot-projectkita.com/api/
           dangerous-clean-slate: false
