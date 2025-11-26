@@ -1,0 +1,67 @@
+name: Deploy Voltmeter API to cPanel
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install API dependencies
+        working-directory: ./api
+        run: pnpm install --ignore-scripts
+
+      - name: Install Prisma CLI v6
+        working-directory: ./api
+        run: pnpm add -D prisma@6 @prisma/client@6
+
+      - name: Generate Prisma client
+        working-directory: ./api
+        run: pnpm prisma generate
+
+      # Upload Prisma runtime
+      - name: Upload Prisma client to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./api/node_modules/.prisma/
+          server-dir: /voltmeter.iot-projectkita.com/api/node_modules/.prisma/
+          dangerous-clean-slate: false
+
+      - name: Upload Prisma @prisma/client to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./api/node_modules/@prisma/
+          server-dir: /voltmeter.iot-projectkita.com/api/node_modules/@prisma/
+          dangerous-clean-slate: false
+
+      # Upload API source code
+      - name: Upload API source to cPanel
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./api/
+          server-dir: /voltmeter.iot-projectkita.com/api/
+          dangerous-clean-slate: false
