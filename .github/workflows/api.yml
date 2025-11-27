@@ -1,0 +1,29 @@
+name: Deploy API to cPanel
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Upload API source
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /voltmeter.iot-projectkita.com/api/
+          dangerous-clean-slate: false
+          exclude: |
+            **/node_modules/**
+            **/.git/**
+            **/.github/**
+            **/prisma/**
+            **/tests/**
+            **/*.md
