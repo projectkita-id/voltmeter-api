@@ -52,18 +52,3 @@ jobs:
           local-dir: ./node_modules/@prisma/
           server-dir: /voltmeter.iot-projectkita.com/api/node_modules/@prisma/
           dangerous-clean-slate: false
-
-      - name: Upload API source to cPanel
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /voltmeter.iot-projectkita.com/api/
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/node_modules/*
-            **/.github/*
-            **/README.md
