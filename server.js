@@ -2,7 +2,7 @@ import cors from "cors";
 import express from 'express';
 import ExcelJS from "exceljs";
 import puppeteer from "puppeteer";
-import { PrismaClient } from ".prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -271,6 +271,8 @@ app.post("/data", async (req, res) => {
                     recordId: record.id
                 }
             });
+
+            logs.push(log);
         }
 
         res.json({
