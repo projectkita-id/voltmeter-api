@@ -56,45 +56,31 @@ app.get("/data/:deviceId/export", async (req, res) => {
         });
 
         // Excel
-
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet(`Record ${latest.id}`);
-        
-        const blockSize = 10;
-        const colGap = 1;
+
+        const blockSize = 31;
         const colWidths = [10, 15, 30];
+        const headers = ['Cell', 'Volt', 'Timestamp'];
 
-        logs.forEach((log, i) => {
-            const block = Math.floor(i / blockSize);
-            const posInBlock = i % blockSize;
+        const minBlocks = 3;
+        const calculatedBlocks = Math.ceil(logs.length / blockSize);
+        const numBlocks = Math.max(minBlocks, calculatedBlocks);
+        const maxRows = 1 + blockSize;
 
-            const startCol = block * 4 + colGap;
-            const rowNum = posInBlock + 2;
+        for (let block = 0; block < numBlocks; block++) {
+            const startCol = block * colWidths.length + 1;
 
-             if (posInBlock === 0) {
-                const headers = ['Cell', 'Volt', 'Timestamp'];
-                headers.forEach((h, i) => {
-                    const cell = sheet.getCell(1, startCol + i);
-                    cell.value = h;
-                    cell.font = { bold: true, size: 12 };
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB0C4DE' } };
-                    cell.border = {
-                        top: { style: "thin" },
-                        left: { style: "thin" },
-                        bottom: { style: "thin" },
-                        right: { style: "thin" },
-                    };
-                    sheet.getColumn(startCol + i).width = colWidths[i];
-                });
-            
-            }
+            colWidths.forEach((width, idx) => {
+                sheet.getColumn(startCol + idx).width = width;
+            });
 
-            const values = [log.cell, log.volt, log.timestamp];
-            values.forEach((v, i) => {
-                const cell = sheet.getCell(rowNum, startCol + i);
-                cell.value = v;
+            headers.forEach((h, idx) => {
+                const cell = sheet.getCell(1, startCol + idx);
+                cell.value = h;
+                cell.font = { bold: true, size: 12 };
                 cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB0C4DE' } };
                 cell.border = {
                     top: { style: "thin" },
                     left: { style: "thin" },
@@ -102,16 +88,32 @@ app.get("/data/:deviceId/export", async (req, res) => {
                     right: { style: "thin" },
                 };
             });
-            // sheet.addRow({
-            //     cell: log.cell,
-            //     volt: log.volt,
-            //     timestamp: log.timestamp
-            // });
-            // sheet.eachRow((row) => {
-            //     row.eachCell((cell) => {
-            //         cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            //     });
-            // });
+
+            for (let r = 2; r <= maxRows; r++) {
+                for (let idx = 0; idx < colWidths.length; idx++) {
+                    const cell = sheet.getCell(r, startCol + idx);
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = {
+                        top: { style: "thin" },
+                        left: { style: "thin" },
+                        bottom: { style: "thin" },
+                        right: { style: "thin" },
+                    };
+                }
+            }
+        }
+
+        logs.forEach((log: any, i: number) => {
+            const block = Math.floor(i / blockSize);
+            const posInBlock = i % blockSize;
+            const startCol = block * colWidths.length + 1;
+            const rowNum = posInBlock + 2;
+
+            const values = [log.cell, log.volt, log.timestamp];
+            values.forEach((v, idx) => {
+                const cell = sheet.getCell(rowNum, startCol + idx);
+                cell.value = v;
+            });
         });
 
         res.setHeader(
@@ -177,7 +179,7 @@ app.get("/data/:deviceId/export/pdf", async (req, res) => {
                     <th>Volt</th>
                 </tr>
                 ${latestRecord.logs
-                    .map(log => `
+                    .map((log: any) => `
                         <tr>
                             <td>${log.cell}</td>
                             <td>${log.volt}</td>
