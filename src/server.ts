@@ -54,13 +54,18 @@ app.get("/data/:deviceId/export", async (req, res) => {
             orderBy: { cell: 'asc' }
         });
 
+        const plus = logs.filter(log => log.type === "PLUS");
+        const minus = logs.filter(log => log.type === "MINUS");
+
+        const maxCells = Math.max(plus.length, minus.length);
+
         // Excel
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet(`Record ${latest.id}`);
 
         const blockSize = 31;
-        const colWidths = [10, 15, 30];
-        const headers = ['Cell', 'Volt', 'Timestamp'];
+        const colWidths = [10, 15, 15, 30];
+        const headers = ['Cell', 'Volt (+)', 'Volt (-)', 'Timestamp'];
 
         const minBlocks = 3;
         const calculatedBlocks = Math.ceil(logs.length / blockSize);
@@ -102,18 +107,20 @@ app.get("/data/:deviceId/export", async (req, res) => {
             }
         }
 
-        logs.forEach((log: any, i: number) => {
+        for (let i = 0; i < maxCells; i++) {
             const block = Math.floor(i / blockSize);
             const posInBlock = i % blockSize;
             const startCol = block * colWidths.length + 1;
             const rowNum = posInBlock + 2;
 
-            const values = [log.cell, log.volt, log.timestamp];
-            values.forEach((v, idx) => {
-                const cell = sheet.getCell(rowNum, startCol + idx);
-                cell.value = v;
-            });
-        });
+            const plusLogs = plus[i];
+            const minusLogs = minus[i];
+
+            sheet.getCell(rowNum, startCol + 0).value = i + 1;
+            sheet.getCell(rowNum, startCol + 1).value = plusLogs?.volt ?? "-";
+            sheet.getCell(rowNum, startCol + 2).value = minusLogs?.volt ?? "-";
+            sheet.getCell(rowNum, startCol + 3).value = plusLogs?.timestamp || minusLogs?.timestamp || "-";
+        }
 
         res.setHeader(
             'Content-Disposition',
