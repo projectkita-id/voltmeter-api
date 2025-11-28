@@ -20,10 +20,3 @@ jobs:
           local-dir: ./
           server-dir: /voltmeter.iot-projectkita.com/api/
           dangerous-clean-slate: false
-          exclude: |
-            **/node_modules/**
-            **/.git/**
-            **/.github/**
-            **/prisma/**
-            **/tests/**
-            **/*.md
