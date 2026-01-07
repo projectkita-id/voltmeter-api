@@ -13,12 +13,12 @@
   "packageManager": "pnpm@10.13.1",
   "dependencies": {
     "@prisma/client": "6.16.2",
-    "prisma": "6.16.2",
     "cors": "^2.8.5",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
-    "nodemon": "^3.1.11",
-    "puppeteer": "^24.31.0"
+    "nodemon": "^3.1.11"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "prisma": "6.16.2"
+  }
 }

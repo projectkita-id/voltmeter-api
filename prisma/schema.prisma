@@ -19,7 +19,6 @@ model Log {
   id          Int         @id @default(autoincrement())
   deviceId    String
   cell        Int
-  type        CellType
   volt        Float
   timestamp   DateTime    @default(now())
 
@@ -31,13 +30,10 @@ model Record {
   id          Int        @id @default(autoincrement())
   detail      String
   deviceId    String
-  cellPlus    Int
-  cellMinus   Int
+  cell        Int
+  total       Float
+  plus        Float
+  minus       Float
   timestamp   DateTime
   logs        Log[]
-}
-
-enum CellType {
-  PLUS
-  MINUS
 }
