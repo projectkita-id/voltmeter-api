@@ -1,19 +1,18 @@
-import cors from "cors";
-import express from "express";
-import ExcelJS from "exceljs";
-import pkg from "@prisma/client";
+import cors from 'cors';
+import express from 'express';
+import ExcelJS from 'exceljs';
+import pkg from '@prisma/client';
 
 const { PrismaClient } = pkg;
 
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(cors());
+app.use(cors())
 app.use(express.json());
 
-/**
- * Lebar kolom FIX per blok untuk tabel utama (rapat/press isi)
- */
+
+// HELPER
 function setFixedBlockWidths(sheet, numBlocks, gap) {
   const WIDTH_CELL = 6;
   const WIDTH_VOLT = 9;
@@ -33,50 +32,52 @@ function setFixedBlockWidths(sheet, numBlocks, gap) {
   }
 }
 
+// GET
+
 app.get("/data", async (req, res) => {
-  const log = await prisma.log.findMany();
-  res.json(log);
-});
+    const log = await prisma.log.findMany();
+    res.json(log);
+})
 
 app.get("/data/:deviceId", async (req, res) => {
-  const { deviceId } = req.params;
+    const { deviceId } = req.params;
+    
+    try {
+        const record = await prisma.record.findMany({
+            where: { deviceId },
+            orderBy: { id: 'asc' }
+        })
 
-  try {
-    const record = await prisma.record.findMany({
-      where: { deviceId },
-      orderBy: { id: "asc" },
-    });
+        if (record.length === 0) {
+            return res.json({ deviceId, records: [] });
+        }
 
-    if (record.length === 0) {
-      return res.json({ deviceId, records: [] });
+        const result = []
+
+        for (const rec of record) {
+            const log = await prisma.log.findMany({
+                where: { recordId: rec.id },
+                orderBy: { cell: 'asc' }
+            });
+
+            result.push({
+                detail: rec.detail,
+                total: rec.total,
+                plus: rec.plus,
+                minus: rec.minus,
+                log
+            })
+        }
+
+        res.json({
+            deviceId,
+            data: result
+        })
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        res.status(500).json({ error: "Internal server error: " + message })
     }
-
-    const result = [];
-
-    for (const rec of record) {
-      const log = await prisma.log.findMany({
-        where: { recordId: rec.id },
-        orderBy: { cell: "asc" },
-      });
-
-      result.push({
-        detail: rec.detail,
-        total: rec.total,
-        plus: rec.plus,
-        minus: rec.minus,
-        log,
-      });
-    }
-
-    res.json({
-      deviceId,
-      data: result,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "Internal server error: " + message });
-  }
-});
+})
 
 app.get("/data/:deviceId/export", async (req, res) => {
   const { deviceId } = req.params;
@@ -165,12 +166,10 @@ app.get("/data/:deviceId/export", async (req, res) => {
       timeCell.numFmt = "dd/mm/yyyy";
     });
 
-    // ✅ Extra tetap di bawah kiri (A..C), tapi label dibuat lebih lebar dengan MERGE
-    const extraStartCol = 1; // A
-    const valueCol = 3; // C (nilai di kolom C)
-    const labelMergeEndCol = 2; // B (label merge A-B). Kalau masih kepotong, ganti jadi 3 (A-C) dan nilai pindah ke D.
+    const extraStartCol = 1;
+    const valueCol = 3;
+    const labelMergeEndCol = 2;
 
-    // baris kosong pemisah
     for (let i = 0; i < colsPerBlock; i++) {
       sheet.getCell(maxRows + 1, extraStartCol + i).value = null;
     }
@@ -178,7 +177,6 @@ app.get("/data/:deviceId/export", async (req, res) => {
     extra.forEach((title, idx) => {
       const extraRow = maxRows + 2 + idx;
 
-      // merge label A-B agar lebar
       sheet.mergeCells(extraRow, extraStartCol, extraRow, labelMergeEndCol);
 
       const titleCell = sheet.getCell(extraRow, extraStartCol);
@@ -187,7 +185,7 @@ app.get("/data/:deviceId/export", async (req, res) => {
       titleCell.alignment = {
         horizontal: "left",
         vertical: "middle",
-        wrapText: false, // biar tidak turun baris
+        wrapText: false,
       };
       titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFB0C4DE" } };
       titleCell.border = {
@@ -210,10 +208,8 @@ app.get("/data/:deviceId/export", async (req, res) => {
       };
     });
 
-    // ✅ Lebar tabel utama rapat (ini tetap)
     setFixedBlockWidths(sheet, numBlocks, gap);
 
-    // Tambahan kecil: pastikan kolom value (C) cukup untuk angka 11,1 dll
     sheet.getColumn(3).width = Math.max(sheet.getColumn(3).width || 0, 10);
 
     res.setHeader("Content-Disposition", `attachment; filename=record_${deviceId}_${latest.id}.xlsx`);
@@ -231,62 +227,68 @@ app.get("/data/:deviceId/export", async (req, res) => {
   }
 });
 
+// POST
+
 app.post("/data", async (req, res) => {
-  const { deviceId, standardCount, standard, all, plus, minus } = req.body;
+    const { deviceId, standardCount, standard, all, plus, minus} = req.body;
 
-  if (!deviceId || !standardCount || !Array.isArray(standard)) {
-    return res.status(400).json({ error: "Invalid request body" });
-  }
-
-  if (standard.length !== standardCount) {
-    return res.status(400).json({ error: "Volt array length does not match cell count" });
-  }
-
-  try {
-    const previousCount = await prisma.record.count({ where: { deviceId } });
-
-    const now = new Date();
-    const desc = `Pengambilan ke-${previousCount + 1}`;
-
-    const record = await prisma.record.create({
-      data: {
-        deviceId,
-        cell: standardCount,
-        detail: desc,
-        timestamp: now,
-        total: all,
-        plus,
-        minus,
-      },
-    });
-
-    const logs = [];
-
-    for (let i = 0; i < standardCount; i++) {
-      const log = await prisma.log.create({
-        data: {
-          deviceId,
-          cell: i + 1,
-          volt: standard[i],
-          timestamp: now,
-          recordId: record.id,
-        },
-      });
-
-      logs.push(log);
+    if (!deviceId || !standardCount ||  !Array.isArray(standard)) {
+        return res.status(400).json({ error: "Invalid request body" });
     }
 
-    res.json({
-      message: "Data recorded successfully",
-      record,
-      data: logs,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "Internal server error: " + message });
-  }
-});
+    if (standard.length !== standardCount) {
+        return res.status(400).json({ error: "Volt array length does not match cell count" });
+    }
+    
+    try {
+        const previousCount = await prisma.record.count({
+            where: { deviceId }
+        });
+        
+        const now = new Date();
+        const desc = `Pengambilan ke-${previousCount + 1}`;
 
-app.listen(3000, '0.0.0.0', () => {
-  console.log("Server is running on http://localhost:3000");
-});
+        const record = await prisma.record.create({
+            data: {
+                deviceId,
+                cell: standardCount,
+                detail: desc,
+                timestamp: now,
+                total: all,
+                plus,
+                minus
+            }
+        });
+
+        const logs = [];
+
+        for (let i = 0; i < standardCount; i++) {
+            const log = await prisma.log.create({
+                data: {
+                    deviceId,
+                    cell: i + 1,
+                    volt: standard[i],
+                    timestamp: now,
+                    recordId: record.id
+                }
+            });
+
+            logs.push(log);
+        }
+
+        res.json({
+            message: "Data recorded successfully",
+            record,
+            data: logs
+        })
+
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        res.status(500).json({ error: "Internal server error: " + message });
+    }
+
+})
+
+app.listen(3000, () => {
+    console.log("Server is running on http://localhost:3000");
+})
